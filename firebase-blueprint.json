@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "version": "2",
+    "service": "cloud.firestore",
+    "match": [
+      {
+        "path": "/databases/{database}/documents",
+        "match": [
+          {
+            "path": "/{document=**}",
+            "allow": {
+              "read, write": "if true"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
