@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
-  "requestFramePermissions": [],
+  "name": "ระบบบันทึกประวัติการทำงานและอบรมภาครัฐ",
+  "description": "ระบบจัดการประวัติรับราชการ ประวัติการอบรม ประวัติการทำงาน และการสำรองข้อมูลลง Google Drive / Sheets",
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

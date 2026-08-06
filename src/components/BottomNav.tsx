@@ -15,7 +15,8 @@ export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
       inputOptions: {
         'official': 'ประวัติรับราชการ',
         'training': 'ประวัติการฝึกอบรม',
-        'experience': 'ประสบการณ์ทำงาน'
+        'experience': 'ประสบการณ์ทำงาน',
+        'leave': 'ประวัติการลา'
       },
       inputPlaceholder: 'เลือกรายการ...',
       showCancelButton: true,

@@ -8,16 +8,20 @@ import { TrainingHistoryTab } from './components/TrainingHistoryTab';
 import { WorkExperienceTab } from './components/WorkExperienceTab';
 import { DocumentsTab } from './components/DocumentsTab';
 import { ProfileTab } from './components/ProfileTab';
+import { LeaveHistoryTab } from './components/LeaveHistoryTab';
+import { SmartSearchTab } from './components/SmartSearchTab';
+import { LoginPage } from './components/LoginPage';
+import { BackupModal } from './components/BackupModal';
 import { useGoogleSheetsData } from './hooks/useGoogleSheetsData';
-import { initAuth, googleSignIn, getAccessToken } from './lib/googleAuth';
-import { OfficialHistory, TrainingHistory, WorkExperience, UserProfile } from './types';
-import { motion } from 'motion/react';
+import { initAuth, googleSignIn } from './lib/googleAuth';
+import { OfficialHistory, TrainingHistory, WorkExperience, LeaveLog, UserProfile } from './types';
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [needsAuth, setNeedsAuth] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
 
   useEffect(() => {
     initAuth(
@@ -53,17 +57,23 @@ export default function App() {
     };
   }, [needsAuth]);
   
-  const official = useGoogleSheetsData<OfficialHistory>('Official History', row => ({
-    id: row[0], timestamp: 0, date: row[0], movement: row[1], positionAndDept: row[2], salary: Number(row[3]), referenceDoc: row[4], type: '', level: '', positionNumber: ''
-  }), [needsAuth]);
-  const training = useGoogleSheetsData<TrainingHistory>('Training History', row => ({
-    id: row[0], timestamp: 0, year: row[0], startDate: row[1], endDate: row[2], courseName: row[3], organizer: row[4], durationDays: Number(row[5])
-  }), [needsAuth]);
-  const experience = useGoogleSheetsData<WorkExperience>('Work Experience', row => ({
-    id: row[0], timestamp: 0, duration: row[0], role: row[1], department: row[2]
+  const official = useGoogleSheetsData<OfficialHistory>('Official History', (row, index) => ({
+    id: `off_${index}`, rowIdx: index, timestamp: 0, date: row[0] || '', movement: row[1] || '', positionAndDept: row[2] || '', salary: Number(row[3]) || 0, referenceDoc: row[4] || '', type: '', level: '', positionNumber: ''
   }), [needsAuth]);
 
-  const loading = official.loading || training.loading || experience.loading || profile.loading;
+  const training = useGoogleSheetsData<TrainingHistory>('Training History', (row, index) => ({
+    id: `trn_${index}`, rowIdx: index, timestamp: 0, year: row[0] || '', startDate: row[1] || '', endDate: row[2] || '', courseName: row[3] || '', organizer: row[4] || '', durationDays: Number(row[5]) || 0, referenceDoc: row[6] || ''
+  }), [needsAuth]);
+
+  const experience = useGoogleSheetsData<WorkExperience>('Work Experience', (row, index) => ({
+    id: `exp_${index}`, rowIdx: index, timestamp: 0, duration: row[0] || '', role: row[1] || '', department: row[2] || '', documentRef: row[3] || ''
+  }), [needsAuth]);
+
+  const leave = useGoogleSheetsData<LeaveLog>('Leave History', (row, index) => ({
+    id: `lea_${index}`, rowIdx: index, timestamp: 0, fiscalYear: row[0] || '', leaveType: row[1] || '', startDate: row[2] || '', endDate: row[3] || '', totalDays: Number(row[4]) || 1, reason: row[5] || '', referenceDoc: row[6] || ''
+  }), [needsAuth]);
+
+  const loading = official.loading || training.loading || experience.loading || profile.loading || leave.loading;
   
   // Safe extraction of profile data
   const profileData = profile.data.length > 0 ? profile.data[0].data : null;
@@ -79,6 +89,10 @@ export default function App() {
         return <TrainingHistoryTab logs={training.data} loading={training.loading} onSaveSuccess={training.refetch} />;
       case 'experience':
         return <WorkExperienceTab logs={experience.data} loading={experience.loading} onSaveSuccess={experience.refetch} />;
+      case 'leave':
+        return <LeaveHistoryTab logs={leave.data} loading={leave.loading} onSaveSuccess={leave.refetch} />;
+      case 'search':
+        return <SmartSearchTab officialLogs={official.data} trainingLogs={training.data} experienceLogs={experience.data} leaveLogs={leave.data} loading={loading} />;
       case 'documents':
         return <DocumentsTab />;
       case 'dashboard':
@@ -88,6 +102,10 @@ export default function App() {
           trainingCount={training.data.length} 
           experienceCount={experience.data.length} 
           loading={loading} 
+          officialLogs={official.data}
+          trainingLogs={training.data}
+          profileData={profileData}
+          onOpenProfile={() => setActiveTab('profile')}
         />;
     }
   };
@@ -99,38 +117,16 @@ export default function App() {
       case 'official': return 'ประวัติรับราชการ';
       case 'training': return 'ประวัติการฝึกอบรม';
       case 'experience': return 'ประสบการณ์ทำงาน';
+      case 'leave': return 'ประวัติการลา';
+      case 'search': return 'ค้นหา & ติดแท็ก';
       case 'documents': return 'เอกสาร/รูปภาพ';
       default: return 'กระดานข้อมูล';
     }
   };
 
+
   if (needsAuth) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#FAFAFA] font-sans">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-10 rounded-[2rem] shadow-xl border border-slate-100 flex flex-col items-center justify-center max-w-sm w-full mx-4">
-           <div className="w-16 h-16 rounded-2xl bg-[#D4AF37]/10 flex items-center justify-center mb-6">
-              <i className="fa-solid fa-address-card text-3xl text-[#D4AF37]"></i>
-           </div>
-           <h1 className="text-3xl font-serif font-bold text-slate-900 mb-2">mootu LevelUp!</h1>
-           <p className="text-sm text-slate-500 mb-8 text-center px-4">เข้าสู่ระบบเพื่อเชื่อมต่อกับ Google Sheets และบันทึกข้อมูลของคุณ</p>
-           
-           <button onClick={handleLogin} disabled={isLoggingIn} className="gsi-material-button hover:bg-slate-50 transition w-full max-w-[240px] flex items-center bg-white border border-slate-300 rounded overflow-hidden shadow">
-              <div className="p-3 bg-white">
-                <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5 block">
-                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-                  <path fill="none" d="M0 0h48v48H0z"></path>
-                </svg>
-              </div>
-              <span className="flex-1 text-center font-medium font-sans text-slate-600 text-[14px]">
-                 {isLoggingIn ? 'กำลังเข้าสู่ระบบ...' : 'Sign in with Google'}
-              </span>
-           </button>
-        </motion.div>
-      </div>
-    );
+    return <LoginPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
   }
 
   return (
@@ -140,6 +136,7 @@ export default function App() {
         setIsOpen={setSidebarOpen} 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
+        onOpenBackupModal={() => setBackupModalOpen(true)}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         <Header 
@@ -147,12 +144,28 @@ export default function App() {
           activeTabLabel={getTabLabel()}
           profileData={profileData}
           setActiveTab={setActiveTab}
+          onOpenBackupModal={() => setBackupModalOpen(true)}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden relative pb-24 lg:pb-0">
-          {renderContent()}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden relative pb-24 lg:pb-12 flex flex-col justify-between">
+          <div>
+            {renderContent()}
+          </div>
+          <footer className="mt-8 py-4 px-6 border-t border-slate-200/60 bg-white/50 backdrop-blur-xs text-center text-xs text-slate-500 font-medium flex items-center justify-center gap-2">
+            <span>พัฒนาโดย IT SSJ Satun 2569</span>
+            <i className="fa-solid fa-code text-amber-600" aria-label="code icon"></i>
+          </footer>
         </main>
         <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
+
+      <BackupModal
+        isOpen={backupModalOpen}
+        onClose={() => setBackupModalOpen(false)}
+        officialData={official.data}
+        trainingData={training.data}
+        experienceData={experience.data}
+        profileData={profileData}
+      />
     </div>
   );
 }

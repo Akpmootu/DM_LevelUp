@@ -163,3 +163,20 @@ export const updateRow = async (spreadsheetId: string, range: string, rowIndex: 
   if (!res.ok) throw new Error('Failed to update row');
   return await res.json();
 };
+
+export const clearRow = async (spreadsheetId: string, sheetName: string, rowIndex: number) => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No access token');
+
+  const rowA1 = `'${sheetName}'!A${rowIndex}:Z${rowIndex}`;
+  const res = await fetch(`${GOOGLE_API_PREFIX}/${spreadsheetId}/values/${rowA1}:clear`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!res.ok) throw new Error('Failed to clear row');
+  return await res.json();
+};

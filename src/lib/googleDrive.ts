@@ -42,6 +42,46 @@ export const createFolder = async (folderName: string) => {
   return data.id;
 };
 
+export const findSubFolder = async (parentFolderId: string, folderName: string) => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No access token');
+  
+  const q = `'${parentFolderId}' in parents and name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res = await fetch(`${DRIVE_API_PREFIX}?q=${encodeURIComponent(q)}&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  
+  if (!res.ok) throw new Error('Failed to search subfolder');
+  const data = await res.json();
+  
+  if (data.files && data.files.length > 0) {
+    return data.files[0].id;
+  }
+  return null;
+};
+
+export const createSubFolder = async (parentFolderId: string, folderName: string) => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No access token');
+
+  const res = await fetch(DRIVE_API_PREFIX, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: folderName,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [parentFolderId],
+    }),
+  });
+  
+  if (!res.ok) throw new Error('Failed to create subfolder');
+  const data = await res.json();
+  return data.id;
+};
+
 let folderPromise: Promise<string> | null = null;
 
 export const getOrCreateFolder = async () => {
@@ -64,12 +104,43 @@ export const getOrCreateFolder = async () => {
   return folderPromise;
 };
 
-export const uploadFile = async (file: File, folderId: string) => {
+export const getOrCreateYearFolder = async (year: string) => {
+  const rootFolderId = await getOrCreateFolder();
+  const cleanYear = year ? String(year).trim() : new Date().getFullYear() + 543;
+  const folderName = `พ.ศ. ${cleanYear}`;
+
+  let subFolderId = await findSubFolder(rootFolderId, folderName);
+  if (!subFolderId) {
+    subFolderId = await createSubFolder(rootFolderId, folderName);
+  }
+  return subFolderId;
+};
+
+export const copyFileBackup = async (fileId: string, newTitle: string) => {
+  const token = await getAccessToken();
+  if (!token) throw new Error('No access token');
+
+  const res = await fetch(`${DRIVE_API_PREFIX}/${fileId}/copy`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: newTitle,
+    }),
+  });
+
+  if (!res.ok) throw new Error('Failed to create backup copy');
+  return await res.json();
+};
+
+export const uploadFile = async (file: File, folderId: string, customName?: string) => {
   const token = await getAccessToken();
   if (!token) throw new Error('No access token');
 
   const metadata = {
-    name: file.name,
+    name: customName || file.name,
     parents: [folderId]
   };
 

@@ -1,5 +1,6 @@
 export interface OfficialHistory {
   id?: string;
+  rowIdx?: number;
   timestamp: number;
   date: string;
   salary: number;
@@ -13,6 +14,7 @@ export interface OfficialHistory {
 
 export interface TrainingHistory {
   id?: string;
+  rowIdx?: number;
   timestamp: number;
   year: string;
   startDate: string;
@@ -20,14 +22,17 @@ export interface TrainingHistory {
   durationDays: number;
   courseName: string;
   organizer: string;
+  referenceDoc?: string;
 }
 
 export interface WorkExperience {
   id?: string;
+  rowIdx?: number;
   timestamp: number;
   role: string;
   department: string;
   duration: string;
+  documentRef?: string;
 }
 
 export interface UserProfile {
@@ -102,5 +107,18 @@ export interface UserProfile {
   otBankAccount?: string;
   otAccountName?: string;
   otBankBranch?: string;
+}
+
+export interface LeaveLog {
+  id?: string;
+  rowIdx?: number;
+  timestamp: number;
+  fiscalYear: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  referenceDoc?: string;
 }
 

@@ -13,6 +13,16 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Suppress harmless Vite WebSocket HMR errors in sandbox environment
+window.addEventListener('unhandledrejection', (event) => {
+  if (
+    event.reason?.message?.includes('WebSocket') ||
+    event.reason?.toString?.().includes('WebSocket')
+  ) {
+    event.preventDefault();
+  }
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

@@ -31,8 +31,11 @@ export function useGoogleSheetsData<T>(sheetName: string, mapRowInfo: (row: any[
           if (rows.length <= 1) { // Only headers
              setData([]);
           } else {
-             // Remove headers and map
-             const records = rows.slice(1).map(mapRowInfo);
+             // Remove headers, preserve sheet row index (index + 2), and map non-empty rows
+             const records = rows.slice(1)
+               .map((row, index) => ({ row, sheetRowIndex: index + 2 }))
+               .filter(({ row }) => row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
+               .map(({ row, sheetRowIndex }) => mapRowInfo(row, sheetRowIndex));
              setData(records);
           }
         }
