@@ -8,6 +8,7 @@ import { getOrCreateFolder, uploadFile } from '../lib/googleDrive';
 import { FilePreviewModal } from './FilePreviewModal';
 import { CameraScanModal } from './CameraScanModal';
 import { validateSelectedFile } from '../lib/fileValidator';
+import { addToOfflineQueue, fileToBase64 } from '../lib/offlineSync';
 
 interface LeaveHistoryTabProps {
   logs: LeaveLog[];
@@ -125,16 +126,6 @@ export function LeaveHistoryTab({ logs, loading, onSaveSuccess }: LeaveHistoryTa
 
     try {
       setSubmitting(true);
-      let fileUrl = formData.referenceDoc || '';
-
-      if (selectedFile) {
-        const folderId = await getOrCreateFolder();
-        fileUrl = await uploadFile(selectedFile, folderId);
-      }
-
-      const spreadsheetId = await getOrCreateSpreadsheet();
-      await addSheet(spreadsheetId, 'Leave History');
-
       const values = [
         formData.fiscalYear || selectedFiscalYear,
         formData.leaveType,
@@ -142,9 +133,50 @@ export function LeaveHistoryTab({ logs, loading, onSaveSuccess }: LeaveHistoryTa
         formData.endDate,
         formData.totalDays || 1,
         formData.reason || '',
-        fileUrl,
+        formData.referenceDoc || '',
       ];
 
+      // Offline mode check
+      if (!navigator.onLine) {
+        let fileDataObj = undefined;
+        if (selectedFile) {
+          const b64 = await fileToBase64(selectedFile);
+          fileDataObj = {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            base64: b64,
+          };
+        }
+
+        addToOfflineQueue({
+          type: 'leave',
+          sheetName: 'Leave History',
+          title: `ใบลา ${formData.leaveType} (${formData.startDate} - ${formData.endDate})`,
+          values: values,
+          fileData: fileDataObj,
+        });
+
+        Swal.fire({
+          icon: 'info',
+          title: 'บันทึกแบบออฟไลน์สำเร็จ! 📦',
+          html: `<p class="text-sm text-slate-600">เนื่องจากไม่มีสัญญาณอินเทอร์เน็ต ข้อมูลการลาและไฟล์แนบถูกจัดเก็บในเครื่องอย่างปลอดภัย และจะซิงค์ให้อัตโนมัติเมื่อออนไลน์</p>`,
+          confirmButtonColor: '#0f172a',
+        });
+
+        setIsModalOpen(false);
+        return;
+      }
+
+      let fileUrl = formData.referenceDoc || '';
+      if (selectedFile) {
+        const folderId = await getOrCreateFolder();
+        fileUrl = await uploadFile(selectedFile, folderId);
+      }
+
+      values[6] = fileUrl;
+
+      const spreadsheetId = await getOrCreateSpreadsheet();
+      await addSheet(spreadsheetId, 'Leave History');
       await appendRow(spreadsheetId, 'Leave History', values);
 
       // Send Telegram notification

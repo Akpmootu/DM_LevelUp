@@ -37,10 +37,20 @@ export function useGoogleSheetsData<T>(sheetName: string, mapRowInfo: (row: any[
                .filter(({ row }) => row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''))
                .map(({ row, sheetRowIndex }) => mapRowInfo(row, sheetRowIndex));
              setData(records);
+             try {
+               localStorage.setItem(`cache_${sheetName}`, JSON.stringify(records));
+             } catch {}
           }
         }
       } catch (err: any) {
         console.error(`Error fetching ${sheetName}: `, err);
+        // Fallback to cached records if network or sheet fetch fails
+        try {
+          const cached = localStorage.getItem(`cache_${sheetName}`);
+          if (cached && mounted) {
+            setData(JSON.parse(cached));
+          }
+        } catch {}
         if (mounted) setError(err);
       } finally {
         if (mounted) setLoading(false);

@@ -82,13 +82,14 @@ export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
       </button>
 
       <button 
-        onClick={() => setActiveTab('experience')}
+        onClick={() => setActiveTab('summary-pdf')}
         className={clsx(
           "flex flex-col items-center justify-center w-16 h-full transition-colors",
-          activeTab === 'experience' ? "text-indigo-600" : "text-slate-400"
+          activeTab === 'summary-pdf' ? "text-amber-600 font-bold" : "text-slate-400"
         )}
+        title="สรุปประวัติ ก.พ. 7 ย่อ (PDF)"
       >
-        <i className="fa-solid fa-briefcase text-xl"></i>
+        <i className="fa-solid fa-file-invoice text-xl"></i>
       </button>
     </nav>
   );

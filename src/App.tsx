@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -10,6 +11,8 @@ import { DocumentsTab } from './components/DocumentsTab';
 import { ProfileTab } from './components/ProfileTab';
 import { LeaveHistoryTab } from './components/LeaveHistoryTab';
 import { SmartSearchTab } from './components/SmartSearchTab';
+import { SummaryReportTab } from './components/SummaryReportTab';
+import { OfflineSyncBanner } from './components/OfflineSyncBanner';
 import { LoginPage } from './components/LoginPage';
 import { BackupModal } from './components/BackupModal';
 import { useGoogleSheetsData } from './hooks/useGoogleSheetsData';
@@ -21,27 +24,78 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [needsAuth, setNeedsAuth] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [backupModalOpen, setBackupModalOpen] = useState(false);
 
   useEffect(() => {
     initAuth(
-      () => setNeedsAuth(false),
+      () => {
+        setNeedsAuth(false);
+        setLoginError(null);
+      },
       () => setNeedsAuth(true)
     );
   }, []);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
+    setLoginError(null);
     try {
       const result = await googleSignIn();
       if (result) {
         setNeedsAuth(false);
+        setLoginError(null);
+        Swal.fire({
+          icon: 'success',
+          title: 'เข้าสู่ระบบสำเร็จ',
+          text: `ยินดีต้อนรับ ${result.user.displayName || result.user.email || ''}`,
+          confirmButtonColor: '#0F172A',
+          timer: 2000,
+          showConfirmButton: false,
+        });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login failed:', err);
+      const code = err?.code || '';
+      let message = 'ไม่สามารถเข้าสู่ระบบผ่าน Google ได้';
+      
+      if (code === 'auth/popup-blocked') {
+        message = 'เบราว์เซอร์บล็อกหน้าต่างป็อปอัป (Popup Blocked) กรุณาอนุญาตป็อปอัป หรือเปิดหน้าเว็บในแท็บใหม่';
+      } else if (code === 'auth/popup-closed-by-user') {
+        message = 'หน้าต่างเข้าสู่ระบบถูกปิดก่อนทำรายการเสร็จสิ้น';
+      } else if (code === 'auth/cancelled-popup-request') {
+        message = 'มีคำขอเข้าสู่ระบบซ้ำซ้อน กรุณาลองใหม่อีกครั้ง';
+      } else if (code === 'auth/unauthorized-domain') {
+        message = 'โดเมนนี้ยังไม่ได้รับอนุญาตใน Firebase Console กรุณากดเปิดใช้งานในแท็บใหม่ หรือเลือกโหมดทดลองใช้งาน';
+      } else if (err?.message) {
+        message = err.message;
+      }
+      
+      setLoginError(message);
+      Swal.fire({
+        icon: 'error',
+        title: 'เข้าสู่ระบบไม่สำเร็จ',
+        html: `<p class="text-sm text-slate-600">${message}</p><p class="text-xs text-amber-700 mt-2 font-medium">💡 เคล็ดลับ: หากใช้งานผ่าน iFrame ในหน้าทดสอบ สามารถกดปุ่ม <b>"เปิดในแท็บใหม่"</b> หรือกด <b>"เข้าใช้งานโหมดออฟไลน์ / ทดลองใช้งาน"</b> ได้ทันทีครับ</p>`,
+        confirmButtonColor: '#0F172A',
+        confirmButtonText: 'เข้าใจแล้ว',
+      });
     } finally {
       setIsLoggingIn(false);
     }
+  };
+
+  const handleEnterGuestMode = () => {
+    // Enable guest offline preview mode
+    localStorage.setItem('google_access_token', 'demo_offline_token');
+    localStorage.setItem('google_access_token_timestamp', Date.now().toString());
+    setNeedsAuth(false);
+    Swal.fire({
+      icon: 'info',
+      title: 'เข้าสู่โหมดออฟไลน์ / พรีวิว',
+      text: 'คุณสามารถทดลองใช้งานและบันทึกข้อมูลออฟไลน์ได้ ข้อมูลจะถูกจัดเก็บในเครื่องและรอซิงค์เมื่อเชื่อมต่อออนไลน์',
+      confirmButtonColor: '#0F172A',
+      confirmButtonText: 'เริ่มใช้งาน',
+    });
   };
 
   const profile = useGoogleSheetsData<{rowIdx: number, data: UserProfile}>('Profile', (row, index) => {
@@ -91,6 +145,17 @@ export default function App() {
         return <WorkExperienceTab logs={experience.data} loading={experience.loading} onSaveSuccess={experience.refetch} />;
       case 'leave':
         return <LeaveHistoryTab logs={leave.data} loading={leave.loading} onSaveSuccess={leave.refetch} />;
+      case 'summary-pdf':
+        return (
+          <SummaryReportTab 
+            profileData={profileData} 
+            officialLogs={official.data} 
+            trainingLogs={training.data} 
+            experienceLogs={experience.data} 
+            leaveLogs={leave.data} 
+            loading={loading} 
+          />
+        );
       case 'search':
         return <SmartSearchTab officialLogs={official.data} trainingLogs={training.data} experienceLogs={experience.data} leaveLogs={leave.data} loading={loading} />;
       case 'documents':
@@ -104,8 +169,10 @@ export default function App() {
           loading={loading} 
           officialLogs={official.data}
           trainingLogs={training.data}
+          leaveLogs={leave.data}
           profileData={profileData}
           onOpenProfile={() => setActiveTab('profile')}
+          onOpenSummaryPdf={() => setActiveTab('summary-pdf')}
         />;
     }
   };
@@ -118,6 +185,7 @@ export default function App() {
       case 'training': return 'ประวัติการฝึกอบรม';
       case 'experience': return 'ประสบการณ์ทำงาน';
       case 'leave': return 'ประวัติการลา';
+      case 'summary-pdf': return 'แบบสรุปประวัติข้าราชการ (ก.พ. 7 ย่อ / PDF)';
       case 'search': return 'ค้นหา & ติดแท็ก';
       case 'documents': return 'เอกสาร/รูปภาพ';
       default: return 'กระดานข้อมูล';
@@ -126,8 +194,26 @@ export default function App() {
 
 
   if (needsAuth) {
-    return <LoginPage onLogin={handleLogin} isLoggingIn={isLoggingIn} />;
+    return (
+      <LoginPage 
+        onLogin={handleLogin} 
+        isLoggingIn={isLoggingIn} 
+        onEnterGuestMode={handleEnterGuestMode}
+        loginError={loginError}
+      />
+    );
   }
+
+  const userStats = {
+    officialCount: official.data.length,
+    trainingCount: training.data.length,
+    experienceCount: experience.data.length,
+    leaveCount: leave.data.length,
+  };
+
+  const userName = profileData?.firstName && profileData?.lastName
+    ? `${profileData.prefix || ''}${profileData.firstName} ${profileData.lastName}`
+    : undefined;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FAFAFA] text-[#1A1A1A] font-sans selection:bg-[#D4AF37]/30 selection:text-[#1A1A1A]">
@@ -146,6 +232,19 @@ export default function App() {
           setActiveTab={setActiveTab}
           onOpenBackupModal={() => setBackupModalOpen(true)}
         />
+
+        {/* PWA & Offline Sync & Telegram Status Banner */}
+        <OfflineSyncBanner 
+          onSyncSuccess={() => {
+            official.refetch();
+            training.refetch();
+            experience.refetch();
+            leave.refetch();
+          }}
+          userStats={userStats}
+          userName={userName}
+        />
+
         <main className="flex-1 overflow-y-auto overflow-x-hidden relative pb-24 lg:pb-12 flex flex-col justify-between">
           <div>
             {renderContent()}

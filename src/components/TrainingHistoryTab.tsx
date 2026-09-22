@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { FilePreviewModal } from './FilePreviewModal';
 import { CameraScanModal } from './CameraScanModal';
 import { validateSelectedFile } from '../lib/fileValidator';
+import { addToOfflineQueue, fileToBase64 } from '../lib/offlineSync';
 
 interface TrainingHistoryTabProps {
   logs: TrainingHistory[];
@@ -323,17 +324,6 @@ function TrainingForm({
     e.preventDefault();
     setSubmitting(true);
     try {
-      let fileLink = formData.referenceDoc || '';
-      if (selectedFile) {
-        const year = formData.year ? String(formData.year).trim() : `${new Date().getFullYear() + 543}`;
-        const yearFolderId = await getOrCreateYearFolder(year);
-        const ext = selectedFile.name.split('.').pop() || 'pdf';
-        const cleanName = (formData.courseName || 'เกียรติบัตรอบรม').replace(/[/\\?%*:|"<>]/g, '-').trim();
-        const customFileName = `${year}_${cleanName}.${ext}`;
-        const uploaded = await uploadFile(selectedFile, yearFolderId, customFileName);
-        fileLink = uploaded.webViewLink || fileLink;
-      }
-
       const formattedStart = formData.startDate?.includes('-') ? formatDateToThai(formData.startDate) : formData.startDate;
       const formattedEnd = formData.endDate?.includes('-') ? formatDateToThai(formData.endDate) : formData.endDate;
 
@@ -343,12 +333,9 @@ function TrainingForm({
         year: String(formData.year || ''),
         startDate: formattedStart || '',
         endDate: formattedEnd || '',
-        referenceDoc: fileLink,
+        referenceDoc: formData.referenceDoc || '',
         timestamp: Date.now(),
       };
-
-      const spreadsheetId = localStorage.getItem('spreadsheetId');
-      if (!spreadsheetId) throw new Error('No spreadsheet found');
 
       const valuesArray = [
         payload.year,
@@ -360,6 +347,53 @@ function TrainingForm({
         payload.referenceDoc || '',
         new Date().toISOString(),
       ];
+
+      // Offline mode check
+      if (!navigator.onLine) {
+        let fileDataObj = undefined;
+        if (selectedFile) {
+          const b64 = await fileToBase64(selectedFile);
+          fileDataObj = {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            base64: b64,
+          };
+        }
+
+        addToOfflineQueue({
+          type: 'training',
+          sheetName: 'Training History',
+          title: payload.courseName || 'ประวัติการอบรม',
+          values: valuesArray,
+          fileData: fileDataObj,
+        });
+
+        Swal.fire({
+          icon: 'info',
+          title: 'บันทึกแบบออฟไลน์สำเร็จ! 📦',
+          html: `<p class="text-sm text-slate-600">ข้อมูลหลักสูตรอบรมถูกจัดเก็บในเครื่องเรียบร้อย และจะทยอยซิงค์ขึ้น Google Drive/Sheets ให้อัตโนมัติเมื่อออนไลน์</p>`,
+          confirmButtonColor: '#0f172a',
+        });
+
+        onBack();
+        return;
+      }
+
+      let fileLink = formData.referenceDoc || '';
+      if (selectedFile) {
+        const year = formData.year ? String(formData.year).trim() : `${new Date().getFullYear() + 543}`;
+        const yearFolderId = await getOrCreateYearFolder(year);
+        const ext = selectedFile.name.split('.').pop() || 'pdf';
+        const cleanName = (formData.courseName || 'เกียรติบัตรอบรม').replace(/[/\\?%*:|"<>]/g, '-').trim();
+        const customFileName = `${year}_${cleanName}.${ext}`;
+        const uploaded = await uploadFile(selectedFile, yearFolderId, customFileName);
+        fileLink = uploaded.webViewLink || fileLink;
+      }
+
+      valuesArray[6] = fileLink;
+
+      const spreadsheetId = localStorage.getItem('spreadsheetId');
+      if (!spreadsheetId) throw new Error('No spreadsheet found');
 
       if (initialData?.rowIdx) {
         // Edit mode

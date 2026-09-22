@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { FilePreviewModal } from './FilePreviewModal';
 import { CameraScanModal } from './CameraScanModal';
 import { validateSelectedFile } from '../lib/fileValidator';
+import { addToOfflineQueue, fileToBase64 } from '../lib/offlineSync';
 
 interface WorkExperienceTabProps {
   logs: WorkExperience[];
@@ -312,6 +313,54 @@ function ExperienceForm({
     e.preventDefault();
     setSubmitting(true);
     try {
+      const payload = {
+        ...formData,
+        duration: formData.duration || '',
+        role: formData.role || '',
+        department: formData.department || '',
+        documentRef: formData.documentRef || '',
+        timestamp: Date.now(),
+      };
+
+      const valuesArray = [
+        payload.duration,
+        payload.role,
+        payload.department,
+        payload.documentRef,
+        new Date().toISOString(),
+      ];
+
+      // Offline mode check
+      if (!navigator.onLine) {
+        let fileDataObj = undefined;
+        if (selectedFile) {
+          const b64 = await fileToBase64(selectedFile);
+          fileDataObj = {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            base64: b64,
+          };
+        }
+
+        addToOfflineQueue({
+          type: 'experience',
+          sheetName: 'Work Experience',
+          title: payload.role || 'ประสบการณ์ทำงาน',
+          values: valuesArray,
+          fileData: fileDataObj,
+        });
+
+        Swal.fire({
+          icon: 'info',
+          title: 'บันทึกแบบออฟไลน์สำเร็จ! 📦',
+          html: `<p class="text-sm text-slate-600">ข้อมูลประสบการณ์/คณะทำงานถูกบันทึกในเครื่องเรียบร้อย และจะทยอยซิงค์ขึ้น Google Drive/Sheets ให้อัตโนมัติเมื่อออนไลน์</p>`,
+          confirmButtonColor: '#0f172a',
+        });
+
+        onBack();
+        return;
+      }
+
       let fileLink = formData.documentRef || '';
       if (selectedFile) {
         const year = extractYear(formData.duration);
@@ -323,25 +372,10 @@ function ExperienceForm({
         fileLink = uploaded.webViewLink || fileLink;
       }
 
-      const payload = {
-        ...formData,
-        duration: formData.duration || '',
-        role: formData.role || '',
-        department: formData.department || '',
-        documentRef: fileLink,
-        timestamp: Date.now(),
-      };
+      valuesArray[3] = fileLink;
 
       const spreadsheetId = localStorage.getItem('spreadsheetId');
       if (!spreadsheetId) throw new Error('No spreadsheet found');
-
-      const valuesArray = [
-        payload.duration,
-        payload.role,
-        payload.department,
-        payload.documentRef,
-        new Date().toISOString(),
-      ];
 
       if (initialData?.rowIdx) {
         // Edit mode

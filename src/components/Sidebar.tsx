@@ -18,6 +18,7 @@ export function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab, onOpenBack
     { id: 'training', label: 'ประวัติการฝึกอบรม', icon: 'fa-chalkboard-user' },
     { id: 'experience', label: 'ประสบการณ์ทำงาน', icon: 'fa-briefcase' },
     { id: 'leave', label: 'ประวัติการลา', icon: 'fa-umbrella-beach' },
+    { id: 'summary-pdf', label: 'สรุปประวัติย่อ (PDF)', icon: 'fa-file-invoice' },
     { id: 'search', label: 'ค้นหา & ติดแท็ก', icon: 'fa-magnifying-glass' },
     { id: 'documents', label: 'เอกสาร/รูปภาพ', icon: 'fa-folder-open' }
   ];

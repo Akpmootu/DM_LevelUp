@@ -66,7 +66,19 @@ export function Header({ toggleSidebar, activeTabLabel, profileData, setActiveTa
       </div>
 
       {/* Right side: Notifications + User Dropdown */}
-      <div className="flex items-center gap-3 sm:gap-5 ml-auto" ref={dropdownRef}>
+      <div className="flex items-center gap-2.5 sm:gap-3 ml-auto" ref={dropdownRef}>
+        {/* Quick PDF Summary Shortcut */}
+        {setActiveTab && (
+          <button
+            onClick={() => setActiveTab('summary-pdf')}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300/80 rounded-xl text-xs font-bold transition shadow-2xs active:scale-95"
+            title="เปิดแบบสรุปประวัติ ก.พ. 7 ย่อ (PDF)"
+          >
+            <i className="fa-solid fa-file-invoice text-amber-600"></i>
+            <span>สรุปประวัติ (PDF)</span>
+          </button>
+        )}
+
         {/* Notification Bell */}
         <div className="relative">
           <button 

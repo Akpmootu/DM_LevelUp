@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { FilePreviewModal } from './FilePreviewModal';
 import { CameraScanModal } from './CameraScanModal';
 import { validateSelectedFile } from '../lib/fileValidator';
+import { addToOfflineQueue, fileToBase64 } from '../lib/offlineSync';
 
 interface OfficialHistoryTabProps {
   logs: OfficialHistory[];
@@ -351,6 +352,55 @@ function OfficialHistoryForm({
     e.preventDefault();
     setSubmitting(true);
     try {
+      const formattedDate = formData.date?.includes('-') ? formatDateToThai(formData.date) : formData.date;
+      const payload = {
+        ...formData,
+        date: formattedDate || '',
+        salary: Number(formData.salary) || 0,
+        referenceDoc: formData.referenceDoc || '',
+        timestamp: Date.now(),
+      };
+
+      const valuesArray = [
+        payload.date,
+        payload.movement || '',
+        payload.positionAndDept || '',
+        payload.salary,
+        payload.referenceDoc || '',
+        new Date().toISOString(),
+      ];
+
+      // Check if user is offline or online
+      if (!navigator.onLine) {
+        let fileDataObj = undefined;
+        if (selectedFile) {
+          const b64 = await fileToBase64(selectedFile);
+          fileDataObj = {
+            name: selectedFile.name,
+            type: selectedFile.type,
+            base64: b64,
+          };
+        }
+
+        addToOfflineQueue({
+          type: 'official',
+          sheetName: 'Official History',
+          title: payload.movement || 'ประวัติรับราชการ',
+          values: valuesArray,
+          fileData: fileDataObj,
+        });
+
+        Swal.fire({
+          icon: 'info',
+          title: 'บันทึกแบบออฟไลน์สำเร็จ! 📦',
+          html: `<p class="text-sm text-slate-600">ขณะนี้ไม่มีสัญญาณอินเทอร์เน็ต ข้อมูลและไฟล์แนบถูกจัดเก็บในเครื่องอย่างปลอดภัย และจะทยอยซิงค์ขึ้น Google Drive/Sheets ให้อัตโนมัติเมื่อออนไลน์</p>`,
+          confirmButtonColor: '#0f172a',
+        });
+
+        onBack();
+        return;
+      }
+
       let fileLink = formData.referenceDoc || '';
       if (selectedFile) {
         const year = extractYear(formData.date);
@@ -362,27 +412,10 @@ function OfficialHistoryForm({
         fileLink = uploaded.webViewLink || fileLink;
       }
 
-      const formattedDate = formData.date?.includes('-') ? formatDateToThai(formData.date) : formData.date;
-
-      const payload = {
-        ...formData,
-        date: formattedDate || '',
-        salary: Number(formData.salary) || 0,
-        referenceDoc: fileLink,
-        timestamp: Date.now(),
-      };
+      valuesArray[4] = fileLink;
 
       const spreadsheetId = localStorage.getItem('spreadsheetId');
       if (!spreadsheetId) throw new Error('No spreadsheet found');
-
-      const valuesArray = [
-        payload.date,
-        payload.movement || '',
-        payload.positionAndDept || '',
-        payload.salary,
-        payload.referenceDoc || '',
-        new Date().toISOString(),
-      ];
 
       if (initialData?.rowIdx) {
         // Edit mode -> Update existing row

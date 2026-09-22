@@ -4,9 +4,11 @@ import { motion } from 'motion/react';
 interface LoginPageProps {
   onLogin: () => void;
   isLoggingIn: boolean;
+  onEnterGuestMode?: () => void;
+  loginError?: string | null;
 }
 
-export function LoginPage({ onLogin, isLoggingIn }: LoginPageProps) {
+export function LoginPage({ onLogin, isLoggingIn, onEnterGuestMode, loginError }: LoginPageProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Particle network animation for interactive background
@@ -220,6 +222,20 @@ export function LoginPage({ onLogin, isLoggingIn }: LoginPageProps) {
             </div>
           </div>
 
+          {/* Error Feedback Message if login fails */}
+          {loginError && (
+            <div className="w-full mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5 text-left">
+              <i className="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5 shrink-0 text-sm"></i>
+              <div className="flex-1">
+                <p className="font-semibold text-rose-800">เข้าสู่ระบบไม่สำเร็จ</p>
+                <p className="text-[11px] leading-tight text-rose-600 mt-0.5">{loginError}</p>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  💡 หากเปิดใช้งานในพรีวิว iFrame กรุณากดเปิดในแท็บใหม่ หรือใช้งาน "เข้าสู่ระบบโหมดออฟไลน์ / ทดลองใช้งาน" ด้านล่าง
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Google Sign-in Button */}
           <button
             onClick={onLogin}
@@ -250,6 +266,18 @@ export function LoginPage({ onLogin, isLoggingIn }: LoginPageProps) {
               </>
             )}
           </button>
+
+          {/* Guest / Offline Mode Alternative Button */}
+          {onEnterGuestMode && (
+            <button
+              onClick={onEnterGuestMode}
+              type="button"
+              className="mt-3 w-full py-2.5 px-4 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-all flex items-center justify-center gap-2 border border-slate-200/60"
+            >
+              <i className="fa-solid fa-laptop text-slate-500"></i>
+              <span>เข้าใช้งานโหมดออฟไลน์ / ทดลองใช้งาน (Offline Demo)</span>
+            </button>
+          )}
 
           {/* Trust Element */}
           <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-slate-500 leading-tight">

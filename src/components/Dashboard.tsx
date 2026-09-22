@@ -2,8 +2,9 @@ import React from 'react';
 import { motion } from 'motion/react';
 import Swal from 'sweetalert2';
 import { YearlyAnalyticsChart } from './YearlyAnalyticsChart';
+import { CareerMilestonesAndAnalytics } from './CareerMilestonesAndAnalytics';
 import { ServiceCalculatorCard } from './ServiceCalculatorCard';
-import { OfficialHistory, TrainingHistory, UserProfile } from '../types';
+import { OfficialHistory, TrainingHistory, UserProfile, LeaveLog } from '../types';
 
 interface DashboardProps {
   officialCount: number;
@@ -12,8 +13,10 @@ interface DashboardProps {
   loading: boolean;
   officialLogs?: OfficialHistory[];
   trainingLogs?: TrainingHistory[];
+  leaveLogs?: LeaveLog[];
   profileData?: UserProfile | null;
   onOpenProfile?: () => void;
+  onOpenSummaryPdf?: () => void;
 }
 
 export function Dashboard({ 
@@ -23,8 +26,10 @@ export function Dashboard({
   loading,
   officialLogs = [],
   trainingLogs = [],
+  leaveLogs = [],
   profileData,
-  onOpenProfile
+  onOpenProfile,
+  onOpenSummaryPdf
 }: DashboardProps) {
   if (loading) {
     return (
@@ -43,19 +48,11 @@ export function Dashboard({
   const total = officialCount + trainingCount + experienceCount;
 
   const handlePrintSummary = () => {
-    Swal.fire({
-      icon: 'info',
-      title: 'พิมพ์รายงานสรุปผล',
-      text: `ระบบกำลังจัดเตรียมเอกสารสรุปข้อมูลประวัติรวม ${total} รายการ`,
-      confirmButtonText: 'พิมพ์เอกสาร (PDF)',
-      confirmButtonColor: '#0F172A',
-      showCancelButton: true,
-      cancelButtonText: 'ยกเลิก',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        window.print();
-      }
-    });
+    if (onOpenSummaryPdf) {
+      onOpenSummaryPdf();
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -226,6 +223,13 @@ export function Dashboard({
           </div>
         </motion.div>
       </div>
+
+      {/* Career Milestones, Salary Progression & Leave Usage Trends (Recharts) */}
+      <CareerMilestonesAndAnalytics
+        officialLogs={officialLogs}
+        leaveLogs={leaveLogs}
+        trainingLogs={trainingLogs}
+      />
 
       {/* Yearly Summary Recharts Analytics Component */}
       <YearlyAnalyticsChart officialLogs={officialLogs} trainingLogs={trainingLogs} />

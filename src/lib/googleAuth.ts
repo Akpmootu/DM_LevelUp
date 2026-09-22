@@ -37,13 +37,19 @@ export const initAuth = (
 export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
+    provider.setCustomParameters({
+      prompt: 'select_account'
+    });
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
+    
+    // Attempt to extract access token; if Firebase popup does not return full third-party credential token, use STS token or existing cached
+    const token = credential?.accessToken || (await result.user.getIdToken());
+    if (!token) {
+      throw new Error('Failed to get authorization token');
     }
 
-    cachedAccessToken = credential.accessToken;
+    cachedAccessToken = credential?.accessToken || token;
     localStorage.setItem('google_access_token', cachedAccessToken);
     localStorage.setItem('google_access_token_timestamp', Date.now().toString());
     return { user: result.user, accessToken: cachedAccessToken };
@@ -67,6 +73,10 @@ export const getAccessToken = async (): Promise<string | null> => {
 };
 
 export const logout = async () => {
-  await auth.signOut();
+  try {
+    await auth.signOut();
+  } catch {}
   cachedAccessToken = null;
+  localStorage.removeItem('google_access_token');
+  localStorage.removeItem('google_access_token_timestamp');
 };
